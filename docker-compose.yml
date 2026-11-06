@@ -1,0 +1,11 @@
+services:
+  app:
+    build:
+          context: .
+          dockerfile: Dockerfile
+    image: helioneto94/idpet-qrcode:latest
+    ports:
+      - "5005:5000"
+    restart: unless-stopped
+    # volumes:
+    #   - ./volume-idpet:/app/downloads

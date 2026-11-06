@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID Pet - Gerador de QR Code</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    
+    
+</head>
+<body>
+    
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" style="max-width: 200px; height: auto;">
+    </div>
+
+    <h1>ID Pet - Gerador de QR Code</h1>
+
+    <div id="dataDisplay">
+        <div id="infoTeste">
+            <p>URL: <span id="urlFixa"></span></p>
+            <p>Id Único: <span id="codigoUnico"></span></p>
+            <p>Id Inicial: <span id="inicio"></span></p>
+            <p>Id Final: <span id="fim"></span></p>
+            <p>Gerar Só um Código?: <span id="gerarSoUmCodigo"></span></p>
+        </div>
+
+        <div>
+            <p>Deseja gerar somente um QR Code ou vários?
+                <select id="gerarSoUmCodigoInput">
+                    <option value="true">Gerar um código</option>
+                    <option value="false">Gerar vários códigos</option>
+                </select>
+            </p>
+        </div>
+    </div>
+
+    <form id="updateForm">
+        <div id="codigoSolo">
+            <label for="codigoUnico">ID da tag do pet:</label>
+            <input type="number" id="codigoUnicoInput" name="codigoUnico" min='0' max='9999' value="0">
+            <br><br>
+        </div>
+        
+        <div id="codigoMulti">
+            <label for="intervalo">Qual o intervalo entre os IDs das tags dos pets?:</label>
+            <br><br>
+            <label for="inicio">Início:</label>
+            <input type="number" id="inicioInput" name="inicio" min='0' max='9999' value="0">
+            <br><br>          
+            <label for="fim">Fim:</label>
+            <input type="number" id="fimInput" name="fim" min='0' max='9999' value="0">
+            <br><br>    
+        </div>
+
+        <button id="botaoGerarQrCode" type="submit">Gerar QR Code</button>
+    </form>
+
+    <script>
+
+        async function fetchData() {
+            // Faz uma requisição GET para obter os dados do backend
+            const hostResponse = await fetch('/get-host');
+            const hostData = await hostResponse.json();
+            const baseUrl = hostData.host;
+
+            const response = await fetch(`${baseUrl}/get-data`);
+            const data = await response.json();
+
+            document.getElementById('urlFixa').innerText = data.urlFixa;
+            document.getElementById('codigoUnico').innerText = data.codigoUnico;
+            document.getElementById('inicio').innerText = data.inicio;
+            document.getElementById('fim').innerText = data.fim;
+            document.getElementById('gerarSoUmCodigo').innerText = data.gerarSoUmCodigo;    
+        }
+
+        // Checa a opção escolhida pelo usuário é de gerar um código ou vários e retorna true/false
+        function isGerarSoUmCodigo(){
+            return document.getElementById('gerarSoUmCodigoInput').value === "true";    
+        }
+
+        async function gerarQrCode(event) {
+            // Previne o comportamento padrão do formulário
+            event.preventDefault();
+
+            // Coleta os valores inseridos no formulário
+            const codigoUnico = document.getElementById('codigoUnicoInput').value;
+            const inicio = document.getElementById('inicioInput').value;
+            const fim = document.getElementById('fimInput').value;
+            const gerarSoUmCodigo = document.getElementById('gerarSoUmCodigoInput').value;
+
+            const hostResponse = await fetch('/get-host');
+            const hostData = await hostResponse.json();
+            const baseUrl = hostData.host;
+
+            await fetch(`${baseUrl}/gerar-qr`, {    
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inicio, fim, codigoUnico, gerarSoUmCodigo})
+            });
+            // Atualiza a exibição após salvar os dados
+            fetchData();
+
+            // Converte para booleano
+            // const isGerarSoUmCodigo = document.getElementById('gerarSoUmCodigoInput').value === "true";
+
+            if (isGerarSoUmCodigo()) {
+                // Download de um único arquivo
+                downloadFile('id-' + codigoUnico + '.png');
+            } else {
+                // Corrige a ordem de início e fim, se necessário
+                let inicioAux = Math.min(inicio, fim);
+                let fimAux = Math.max(inicio, fim);
+
+                // Cria a lista de arquivos
+                let lista = [];
+                for (let i = inicioAux; i <= fimAux; i++) {
+                    lista.push('id-' + i + '.png');
+                }
+
+                // Faz o download do ZIP com a lista de arquivos
+                downloadZip(lista);
+            }
+
+        }
+        
+        //Se o campo "gerarSoUmCodigo" for verdadeiro, desabilita os campos de Inicio e Fim e habilita o CodigoUnico
+        //Se for falso, habilita os campos de Inicio e Fim e desabilita o Codigo Unico
+        //Também esconde/mostra a div necessaria, e também muda o texto do botão de envio
+        async function desabilitarOuHabilitarIntervalo() {
+            if (isGerarSoUmCodigo()) {
+                document.getElementById('codigoUnicoInput').disabled = false;
+                document.getElementById('inicioInput').disabled = true;
+                document.getElementById('inicioInput').value = 0;
+                document.getElementById('fimInput').disabled = true;
+                document.getElementById('fimInput').value = 0;
+                document.getElementById('codigoSolo').style.display = 'block';
+                document.getElementById('codigoMulti').style.display = 'none';
+                document.getElementById('botaoGerarQrCode').innerText = 'Gerar QR Code';
+            } else {
+                document.getElementById('codigoUnicoInput').disabled = true;
+                document.getElementById('codigoUnicoInput').value = 0;
+                document.getElementById('inicioInput').disabled = false;
+                document.getElementById('fimInput').disabled = false;
+                document.getElementById('codigoSolo').style.display = 'none';
+                document.getElementById('codigoMulti').style.display = 'block';
+                document.getElementById('botaoGerarQrCode').innerText = 'Gerar QR Codes';
+            }            
+        }
+
+        // Faz o download do arquivo de qrcode unico
+        async function downloadFile(filename) {
+            const url = `/download/${filename}`;
+            const response = await fetch(url);
+
+            if (response.status === 200) {
+                // Criar um link para o download
+                const blob = await response.blob();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } else {
+                console.error('Erro ao baixar o arquivo:', await response.json());
+            }
+        }
+
+        // Faz downlaod de arquivo .zip com os qrcodes gerados no intervalo solicitado
+        async function downloadZip(selectedFiles) {
+            try {
+                const hostResponse = await fetch('/get-host');
+                const hostData = await hostResponse.json();
+                const baseUrl = hostData.host;
+                const response = await fetch(`${baseUrl}/download-zip`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ files: selectedFiles })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = 'arquivos.zip';
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                } else {
+                    const error = await response.json();
+                    console.error('Erro ao gerar o ZIP:', error);
+                    alert(error.error || 'Erro ao gerar o ZIP.');
+                }
+            } catch (error) {
+                console.error('Erro na requisição:', error);
+                alert('Erro ao tentar fazer download do ZIP.');
+            }
+        }
+
+
+        // Esconde informações de teste
+        document.getElementById('infoTeste').style.display = 'none';
+
+        // Adiciona evento ao formulário e inicializa a exibição
+        document.getElementById('updateForm').addEventListener('submit', gerarQrCode);
+
+        // Adiciona evento ao seletor que executa quando é alterado
+        let selector = document.getElementById("gerarSoUmCodigoInput"); 
+        selector.addEventListener("change", () => {
+            desabilitarOuHabilitarIntervalo();
+        });
+        
+        desabilitarOuHabilitarIntervalo();
+
+        fetchData();
+    </script>
+</body>
+</html>

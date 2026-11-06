@@ -1,0 +1,10 @@
+# Pillow>=5.0
+# pillow==11.0.0
+pillow==10.4.0
+# qrcode>=6.0
+# qrcode==8.0
+qrcode==7.4.2
+# Flask==3.1.0
+Flask==3.0.3
+pipdeptree==2.24.0
+# gunicorn==23.0.0
